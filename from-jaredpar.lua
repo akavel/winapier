@@ -8,10 +8,11 @@ function main(...)
 	if #args == 0 then
 		args = {'CreateWindowExW'}
 	end
+	local result = {}
 	for _,v in ipairs(args) do
-		dumpkv(data[v])
-		print()
+		result[v] = data[v]
 	end
+	dumpt(result)
 end
 
 function import(inputPath)
@@ -206,7 +207,6 @@ function merge(t, t2)
 	end
 	return t
 end
-
 function dumpkv(tab, prefix)
 	prefix = prefix or ''
 	for k,v in pairs(tab) do
@@ -216,6 +216,54 @@ function dumpkv(tab, prefix)
 		else
 			print(('%s%s= %s'):format(prefix,k,v))
 		end
+	end
+end
+function dumpt(t, indent)
+	indent = (indent or '') .. '  '
+	if type(t)=='table' then
+		io.write '{'
+		local max
+		for i, v in ipairs(t) do
+			max = i
+			dumpt(v, indent)
+			io.write ','
+		end
+		local more = false
+		for k, v in pairs(t) do
+			if type(k)~='number' or k<1 or k>max then
+				if more then
+					io.write ';'
+				end
+				more = true
+				io.write '\n'
+				io.write(indent)
+				if type(k)=='string' then
+					if k:match '^[%a_][%w_]*$' then
+						io.write(k)
+					else
+						io.write(('[%q]'):format(k))
+					end
+					io.write '= '
+					dumpt(v, indent)
+				elseif type(k)=='number' then
+					io.write(('[%d]= '):format(k))
+					dumpt(v, indent)
+				else
+					error('unhandled key type: '..type(k))
+				end
+			end
+		end
+		-- if more then
+		-- 	io.write '\n'
+		-- 	io.write(indent)
+		-- end
+		io.write '}'
+	elseif type(t)=='string' then
+		io.write(('%q'):format(t))
+	elseif type(t)=='number' then
+		io.write(tostring(t))
+	elseif type(t)=='boolean' then
+		io.write(tostring(t))
 	end
 end
 
