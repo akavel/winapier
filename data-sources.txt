@@ -1,4 +1,3 @@
-/*
 pinvoke.net:
 - list of modules:
   a) select#NamespaceFilter option[*]
@@ -15,5 +14,3 @@ github.com/jaredpar/pinvoke
 
 github.com/AArnott/pinvoke
 - small...
-*/
-

@@ -17,6 +17,7 @@ function import(inputPath)
 			os.exit(1)
 		end)
 		if entry then
+			-- entry.raw = line
 			data[entry.name] = entry
 		end
 	end
@@ -61,7 +62,9 @@ function parseSalAttr(r)
 			text = r:string(),
 		}
 	end
-	return t
+	if #t > 0 then
+		return t
+	end
 end
 function parseTypeRef(r)
 	local t = {kind = symbolKind[r:int()]}
@@ -69,11 +72,12 @@ function parseTypeRef(r)
 		t.n = r:int()
 		t.typ = parseTypeRef(r)
 	elseif t.kind == 'BuiltinType' then
-		t.builtin = r:int()
+		t.builtin = builtinType[r:int()]
 	elseif t.kind == 'PointerType' then
 		t.base = parseTypeRef(r)
 	elseif t.kind == 'NamedType' then
 		t.qualif = r:string()
+		if t.qualif == '' then t.qualif = nil end
 		t.name = r:string()
 		t.const = r:bool()
 	else
@@ -114,6 +118,19 @@ symbolKind = {
 	'ValueExpression',
 	'Value',
 	'OpaqueType'
+}
+builtinType = {
+	[0] = 'int16',
+	'int32',
+	'int64',
+	'float',
+	'double',
+	'boolean',
+	'char',
+	'wchar',
+	'byte',
+	'void',
+	'unknown',
 }
 
 function Reader(line)
