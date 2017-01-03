@@ -1,0 +1,19 @@
+/*
+pinvoke.net:
+- list of modules:
+  a) select#NamespaceFilter option[*]
+  b) DIV.TreeViewPane-outer-link IMG[*]
+- list funcs in module:
+ /GetPagesInModule.aspx?module=<id>
+- func page:
+ /default.aspx/<module>.<func>
+- printable func page:
+
+github.com/jaredpar/pinvoke
+- StorageGenerator/Data/windows.csv
+- what the license? https://github.com/jaredpar/pinvoke/issues/19
+
+github.com/AArnott/pinvoke
+- small...
+*/
+
