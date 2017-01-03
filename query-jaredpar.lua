@@ -2,9 +2,16 @@
 
 inputPath = '../pinvoke/StorageGenerator/Data/windows.csv'
 
-function main()
+function main(...)
 	local data = import(inputPath)
-	dumpkv(data.CreateWindowExW)
+	local args = {...}
+	if #args == 0 then
+		args = {'CreateWindowExW'}
+	end
+	for _,v in ipairs(args) do
+		dumpkv(data[v])
+		print()
+	end
 end
 
 function import(inputPath)
@@ -28,11 +35,34 @@ function parse(r)
 	local t = {
 		nameKind = nameKind[r:int()]
 	}
-	if t.nameKind == 'Procedure' then
-		return merge(t, parseProcedure(r))
+	if t.nameKind == 'func' then
+		return merge(t, parseFunc(r))
+	elseif t.nameKind == 'typedef' then
+		return merge(t, parseTypedef(r))
+	elseif t.nameKind == 'struct' or t.nameKind == 'union' then
+		return merge(t, parseStruct(r))
 	end
 end
-function parseProcedure(r)
+function parseStruct(r)
+	local t = {
+		name = r:string(),
+		members = {},
+	}
+	for i = 1, r:int() do
+		t.members[#t.members+1] = {
+			name = r:string(),
+			typ = parseTypeRef(r),
+		}
+	end
+	return t
+end
+function parseTypedef(r)
+	return {
+		name = r:string(),
+		typ = parseTypeRef(r),
+	}
+end
+function parseFunc(r)
 	local t = {
 		name = r:string(),
 		calling = r:int(),
@@ -68,18 +98,20 @@ function parseSalAttr(r)
 end
 function parseTypeRef(r)
 	local t = {kind = symbolKind[r:int()]}
-	if t.kind == 'ArrayType' then
+	if t.kind == 'array' then
 		t.n = r:int()
 		t.typ = parseTypeRef(r)
-	elseif t.kind == 'BuiltinType' then
+	elseif t.kind == 'builtin' then
 		t.builtin = builtinType[r:int()]
-	elseif t.kind == 'PointerType' then
-		t.base = parseTypeRef(r)
-	elseif t.kind == 'NamedType' then
+	elseif t.kind == 'pointer' then
+		t.to = parseTypeRef(r)
+	elseif t.kind == 'name' then
 		t.qualif = r:string()
 		if t.qualif == '' then t.qualif = nil end
 		t.name = r:string()
 		t.const = r:bool()
+	elseif t.kind == 'BitVectorType' then
+		t.n = r:int()
 	else
 		error('unhandled symbolKind: '..t.kind)
 	end
@@ -87,50 +119,50 @@ function parseTypeRef(r)
 end
 
 nameKind = {
-	[0] = 'Struct',
-	'Union',
+	[0] = 'struct',
+	'union', -- 1
 	'FunctionPointer',
-	'Procedure',
-	'TypeDef',
-	'Constant',
+	'func',
+	'typedef',
+	'Constant', -- 5
 	'Enum',
-	'EnumValue'
+	'EnumValue',
 }
 symbolKind = {
 	[0] = 'StructType',
-	'EnumType',
+	'EnumType', -- 1
 	'UnionType',
-	'ArrayType',
-	'PointerType',
-	'BuiltinType',
+	'array',
+	'pointer',
+	'builtin', -- 5
 	'TypeDefType',
 	'BitVectorType',
-	'NamedType',
+	'name',
 	'Procedure',
-	'ProcedureSignature',
+	'ProcedureSignature', -- 10
 	'FunctionPointer',
 	'Parameter',
 	'Member',
 	'EnumNameValue',
-	'Constant',
+	'Constant', -- 15
 	'SalEntry',
 	'SalAttribute',
 	'ValueExpression',
 	'Value',
-	'OpaqueType'
+	'OpaqueType', -- 20
 }
 builtinType = {
 	[0] = 'int16',
-	'int32',
+	'int32', -- 1
 	'int64',
 	'float',
 	'double',
-	'boolean',
+	'boolean', -- 5
 	'char',
 	'wchar',
 	'byte',
 	'void',
-	'unknown',
+	'unknown', -- 10
 }
 
 function Reader(line)
@@ -187,4 +219,4 @@ function dumpkv(tab, prefix)
 	end
 end
 
-main()
+main(...)
