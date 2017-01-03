@@ -8,11 +8,45 @@ function main(...)
 	if #args == 0 then
 		args = {'CreateWindowExW'}
 	end
+	local deps = false
+	if args[1] == '-d' then
+		deps = true
+		table.remove(args, 1)
+	end
 	local result = {}
 	for _,v in ipairs(args) do
-		result[v] = data[v]
+		if not result[v] then
+			result[v] = data[v]
+			if deps and data[v] then
+				append_deps(data[v], args)
+			end
+		end
 	end
 	dumpt(result)
+end
+
+function append_deps(t, list)
+	if t.nameKind == 'func' or t.nameKind == 'funcptr' then
+		append_typ(t.ret, list)
+		for _,v in ipairs(t.args) do
+			append_typ(v.typ, list)
+		end
+	elseif t.nameKind == 'typedef' then
+		append_typ(t.typ, list)
+	elseif t.nameKind == 'struct' then
+		for _,v in ipairs(t.members) do
+			append_typ(v.typ, list)
+		end
+	elseif t.nameKind == 'const' then
+		list[#list+1] = t.val
+	end
+end
+function append_typ(t, list)
+	if t.kind == 'name' then
+		list[#list+1] = t.name
+	elseif t.kind == 'pointer' then
+		append_typ(t.to, list)
+	end
 end
 
 function import(inputPath)
@@ -38,11 +72,26 @@ function parse(r)
 	}
 	if t.nameKind == 'func' then
 		return merge(t, parseFunc(r))
+	elseif t.nameKind == 'funcptr' then
+		return merge(t, parseFuncPtr(r))
 	elseif t.nameKind == 'typedef' then
-		return merge(t, parseTypedef(r))
+		local t = merge(t, parseTypedef(r))
+		-- Not sure why, but circular typedefs occur in the data
+		if t.typ.name ~= t.name then
+			return t
+		end
 	elseif t.nameKind == 'struct' or t.nameKind == 'union' then
 		return merge(t, parseStruct(r))
+	elseif t.nameKind == 'const' then
+		return merge(t, parseConst(r))
 	end
+end
+function parseConst(r)
+	return {
+		name = r:string(),
+		val = r:string(),
+		kind = constantKind[r:int()],
+	}
 end
 function parseStruct(r)
 	local t = {
@@ -66,8 +115,15 @@ end
 function parseFunc(r)
 	local t = {
 		name = r:string(),
-		calling = r:int(),
+		calling = callingConvention[r:int()],
 		dll = r:string(),
+	}
+	return merge(t, parseSignature(r))
+end
+function parseFuncPtr(r)
+	local t = {
+		name = r:string(),
+		calling = callingConvention[r:int()],
 	}
 	return merge(t, parseSignature(r))
 end
@@ -79,7 +135,7 @@ function parseSignature(r)
 	}
 	for i = 1, r:int() do
 		t.args[#t.args+1] = {
-			name = r:string(),
+			name = nil_empty(r:string()),
 			typ = parseTypeRef(r),
 		}
 	end
@@ -107,8 +163,7 @@ function parseTypeRef(r)
 	elseif t.kind == 'pointer' then
 		t.to = parseTypeRef(r)
 	elseif t.kind == 'name' then
-		t.qualif = r:string()
-		if t.qualif == '' then t.qualif = nil end
+		t.qualif = nil_empty(r:string())
 		t.name = r:string()
 		t.const = r:bool()
 	elseif t.kind == 'BitVectorType' then
@@ -122,10 +177,10 @@ end
 nameKind = {
 	[0] = 'struct',
 	'union', -- 1
-	'FunctionPointer',
+	'funcptr',
 	'func',
 	'typedef',
-	'Constant', -- 5
+	'const', -- 5
 	'Enum',
 	'EnumValue',
 }
@@ -165,6 +220,18 @@ builtinType = {
 	'void',
 	'unknown', -- 10
 }
+constantKind = {
+	[0] = 'Macro',
+	'MacroMethod',
+}
+callingConvention = {
+	[0] = 'default',
+	'stdcall',
+	'cdecl',
+	'clrcall',
+	'pascal',
+	'inline',
+}
 
 function Reader(line)
 	-- split on ','
@@ -197,7 +264,7 @@ function Reader(line)
 			})
 		end,
 		bool = function(self)
-			return self:next() == 'true'
+			return self:next() == 'true' or nil
 		end,
 	}
 end
@@ -264,6 +331,12 @@ function dumpt(t, indent)
 		io.write(tostring(t))
 	elseif type(t)=='boolean' then
 		io.write(tostring(t))
+	end
+end
+
+function nil_empty(s)
+	if s ~= "" then
+		return s
 	end
 end
 
