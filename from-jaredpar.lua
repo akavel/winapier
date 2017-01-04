@@ -6,7 +6,7 @@ function main(...)
 	local data = import(inputPath)
 	local args = {...}
 	if #args == 0 then
-		args = {'CreateWindowExW'}
+		args = {'-d', 'RegisterClassEx', 'CreateWindowExW', 'TYSPEC', 'MEMCTX', 'CLSCTX', 'tagMKREDUCE', 'EXCEPTION_DISPOSITION'}
 	end
 	local deps = false
 	if args[1] == '-d' then
@@ -84,8 +84,52 @@ function parse(r)
 		return merge(t, parseStruct(r))
 	elseif t.nameKind == 'const' then
 		return merge(t, parseConst(r))
+	elseif t.nameKind == 'enum' then
+		return merge(t, parseEnum(r))
 	end
 end
+function parseEnum(r)
+	local t = {
+		name = r:string(),
+		values = {},
+	}
+	local last = -1
+	for i = 1, r:int() do
+		local v = {
+			name = r:string(),
+			val = nil_empty(r:string()),
+		}
+		t.values[#t.values+1] = v
+		if v.val then
+			last = to_c_num(v.val)
+			if last then
+				v.ival = last
+			end
+		elseif last then
+			last = last+1
+			v.ival = last
+		end
+	end
+	return t
+end
+function to_c_num(s)
+	local ok, v = pcall(function()
+		if s:sub(1,2) == '0x' then
+			return tonumber(s:sub(3), 16)
+		elseif s:sub(1,1) == '0' then
+			return tonumber(s:sub(2), 8)
+		else
+			return tonumber(s)
+		end
+	end)
+	if ok then
+		return v
+	else
+		return false
+	end
+end
+
+
 function parseConst(r)
 	return {
 		name = r:string(),
@@ -181,7 +225,7 @@ nameKind = {
 	'func',
 	'typedef',
 	'const', -- 5
-	'Enum',
+	'enum',
 	'EnumValue',
 }
 symbolKind = {
