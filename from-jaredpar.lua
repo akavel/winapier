@@ -1,4 +1,22 @@
--- Query data from: https://github.com/jaredpar/pinvoke/master/tree/StorageGenerator/Data/windows.csv
+-- from-jaredpar.lua -- parses the WinAPI database from [jaredpar/pinvoke][1]
+-- project, queries it about specified symbols and optionally their
+-- dependencies, then prints the results in Lua table format.
+--
+-- [1]: https://github.com/jaredpar/pinvoke/master/tree/StorageGenerator/Data/windows.csv
+--
+-- TODO: add [jaredpar/pinvoke][1] as a subproject
+-- TODO: emit OCaml ctypes-foreign bindings, in Lua
+-- TODO: add GPL licensing info
+-- TODO: [LATER] write a readme, with info that the idea is to have
+--       emitters+parsers of the same DB in various programming languages, for
+--       ease of use in as many of them as possible
+-- TODO: [LATER] emit Go bindings
+-- TODO: [LATER] change github.com/akavel/goheader to emit our own database and replace jaredpar's one with ours
+-- TODO: [LATER] try changing the DB to some format similarly small but even
+--       more trivial to parse (ideally common enough to have standard parsing
+--       libs instead of needing custom parser, even that simple)
+-- TODO: [LATER] try emitting json as an option
+-- TODO: [LATER][BIG] add support for COM interfaces
 
 inputPath = '../pinvoke/StorageGenerator/Data/windows.csv'
 
