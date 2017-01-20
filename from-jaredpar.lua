@@ -163,7 +163,7 @@ function to_c_num(s)
 	local ok, v = pcall(function()
 		if s:sub(1,2) == '0x' then
 			return tonumber(s:sub(3), 16)
-		elseif s:sub(1,1) == '0' then
+		elseif s:sub(1,1) == '0' and #s > 1 then
 			return tonumber(s:sub(2), 8)
 		else
 			return tonumber(s)
