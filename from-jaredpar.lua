@@ -7,6 +7,7 @@
 -- TODO: add [jaredpar/pinvoke][1] as a subproject
 -- TODO: emit OCaml ctypes-foreign bindings, in Lua
 -- TODO: add GPL licensing info
+-- TODO: add --help (and /?) option and usage info
 -- TODO: [LATER] write a readme, with info that the idea is to have
 --       emitters+parsers of the same DB in various programming languages, for
 --       ease of use in as many of them as possible
@@ -20,17 +21,30 @@
 
 inputPath = '../pinvoke/StorageGenerator/Data/windows.csv'
 
+-- global flags
+keepHungarian = false
+
 function main(...)
 	local data = import(inputPath)
 	local args = {...}
 	if #args == 0 then
 		args = {'-d', 'RegisterClassEx', 'CreateWindowExW', 'TYSPEC', 'MEMCTX', 'CLSCTX', 'tagMKREDUCE', 'EXCEPTION_DISPOSITION'}
 	end
+
+	-- parse options
 	local deps = false
-	if args[1] == '-d' then
-		deps = true
+	while #args > 0 and args[1]:sub(1,1) == '-' do
+		if args[1] == '-d' then
+			deps = true
+		elseif args[1] == '-h' then
+			keepHungarian = true
+		else
+			io.stderr:write("error: unknown option "..args[1].."\n")
+			os.exit(1)
+		end
 		table.remove(args, 1)
 	end
+
 	local result = {}
 	for _,v in ipairs(args) do
 		if not result[v] then
@@ -41,6 +55,21 @@ function main(...)
 		end
 	end
 	dumpt(result)
+end
+
+function strip_hungarian(s)
+	if keepHungarian then return s end
+	if not s then return s end
+	local hungarian = {'cb', 'dw', 'h', 'hbr', 'hWnd', 'lp', 'lpfn', 'lpsz', 'n'}
+	-- Note: longest prefixes must be matched first, so we sort them this way
+	table.sort(hungarian, function(a, b) return #a > #b end)
+	for _, h in ipairs(hungarian) do
+		local _, _, first, rest = s:find('^'..h..'(%u)(.*)')
+		if first then
+			return first:lower() .. rest
+		end
+	end
+	return s
 end
 
 function append_deps(t, list)
@@ -162,7 +191,7 @@ function parseStruct(r)
 	}
 	for i = 1, r:int() do
 		t.members[#t.members+1] = {
-			name = r:string(),
+			name = strip_hungarian(r:string()),
 			typ = parseTypeRef(r),
 		}
 	end
@@ -197,7 +226,7 @@ function parseSignature(r)
 	}
 	for i = 1, r:int() do
 		t.args[#t.args+1] = {
-			name = nil_empty(r:string()),
+			name = nil_empty(strip_hungarian(r:string())),
 			typ = parseTypeRef(r),
 		}
 	end
