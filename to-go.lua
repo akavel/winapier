@@ -12,21 +12,112 @@ function main()
 	end
 	local input = assert(load(read))()
 
+	-- emit common preamble
+	printf [[
+import "unsafe"
+import "syscall"
+
+var _ = unsafe.Pointer
+var _ = syscall.MustLoadDLL
+
+func frombool(b bool) uintptr {
+	if b {
+		return 1
+	} else {
+		return 0
+	}
+}
+
+]]
+
 	-- emit entities
 	for name, entity in pairs(input) do
 		if entity.nameKind == 'struct' then
 			-- TODO(akavel): check if using lustache or some other (Go-like?) templating engine simplifies stuff
-			printf("type %s struct {\n", entity.name)
+			printf("type %s struct {\n", upcase(entity.name))
 			for _, m in ipairs(entity.members) do
-				printf("\t%s %s\n", m.name, format_type(m.typ))
+				printf("\t%s %s\n", upcase(m.name), format_type(m.typ))
 			end
 			printf("}\n")
 		elseif entity.nameKind == 'typedef' then
-			printf("type %s %s\n", entity.name, format_type(entity.typ))
+			printf("type %s %s\n", upcase(entity.name), format_type(entity.typ))
+		elseif entity.nameKind == 'enum' then
+			-- TODO(akavel): int, or int32, or int64, or...?
+			printf("type %s int\n", upcase(entity.name))
+			printf("const (\n")
+			for _, v in ipairs(entity.values) do
+				if v.ival then
+					printf("\t%s %s = %d\n", upcase(v.name), upcase(entity.name), v.ival)
+				else
+					printf("\t// FIXME: %s %s = %s\n", v.name, entity.name, v.val)
+				end
+			end
+			printf(")\n")
+		elseif entity.nameKind == 'const' then
+			if entity.kind == 'Macro' then
+				printf("/* FIXME: #define %s %s */\n", entity.name, entity.val)
+			else
+				error('unknown const kind: '..entity.kind)
+			end
+		elseif entity.nameKind == 'func' then
+			emit_func(entity)
 		else
 			error('unknown entity nameKind: '..entity.nameKind)
 		end
 	end
+end
+
+function emit_func(f)
+	-- TODO(akavel): try emitting funcs as structs with Call method, to simulate named params,
+	-- to make it easier to omit some params.
+
+	-- helper variable
+	printf('\nvar proc%s = syscall.MustLoadDLL("%s").MustFindProc("%s")\n\n',
+		f.name, f.dll, f.name)
+
+	-- func signature
+	printf("func %s(", f.name)
+	for i, arg in ipairs(f.args) do
+		if i > 1 then printf(", ") end
+		printf("%s %s", arg.name, format_type(arg.typ))
+	end
+	printf ") "
+	if f.ret.kind == 'builtin' and f.ret.builtin == 'void' then
+		printf "error {\n"
+	else
+		printf("(%s, error) {\n", format_type(f.ret))
+	end
+
+	-- func body - call
+	printf("\tr1, _, lastErr := proc%s.Call(", f.name)
+	for i, arg in ipairs(f.args) do
+		if i > 1 then printf(", ") end
+		local kind = arg.typ.kind
+		if kind == 'name' or kind == 'builtin' then
+			if arg.typ.builtin == 'bool' then
+				printf('frombool(%s)', arg.name)
+			else
+				-- FIXME(akavel): some named types may actually be pointers (or bools) -- e.g. LPCWSTR
+				printf('uintptr(%s)', arg.name)
+			end
+		elseif kind == 'pointer' then
+			printf('uintptr(unsafe.Pointer(%s))', arg.name)
+		else
+			error("don't know how to convert kind to uintptr: "..kind.." in arg: "..arg.name)
+		end
+	end
+	printf(")\n")
+
+	-- func body - return
+	-- TODO(akavel): try to put in DB info when a func returns successfully and when it returns error,
+	-- then behave appropriately here
+	if f.ret.kind == 'builtin' and f.ret.builtin == 'void' then
+		printf "\treturn lastErr\n"
+	else
+		printf("\treturn (%s)(r1), lastErr\n", format_type(f.ret))
+	end
+
+	printf("}\n\n")
 end
 
 function format_type(typ)
@@ -34,11 +125,25 @@ function format_type(typ)
 		local builtins = {int32='int32', int16='int16'}
 		return assert(builtins[typ.builtin], 'unknown builtin: '..typ.builtin)
 	elseif typ.kind == 'pointer' then
+		local to = typ.to
+		if to.kind == 'builtin' and to.builtin == 'void' then
+			-- TODO(akavel): *byte or unsafe.Pointer ?
+			return 'unsafe.Pointer'
+		end
 		return '*' .. format_type(typ.to)
 	elseif typ.kind == 'name' then
-		return typ.name
+		return upcase(typ.name)
 	else
 		error('unknown type kind: '..typ.kind)
+	end
+end
+
+function upcase(s)
+	local first, rest = s:sub(1,1), s:sub(2)
+	if first == '_' then
+		return 'X_' .. rest
+	else
+		return first:upper() .. rest
 	end
 end
 
