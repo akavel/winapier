@@ -160,6 +160,13 @@ function parseEnum(r)
 	return t
 end
 function to_c_num(s)
+	-- try to convert bit left shift
+	local _, _, a, b = s:find '^%s*([1-9][0-9]*)%s*<<%s*([1-9][0-9]*)%s*$'
+	if a then
+		return (0+a)*(2^(0+b))
+	end
+
+	-- try to convert regular C-style number
 	local ok, v = pcall(function()
 		if s:sub(1,2) == '0x' then
 			return tonumber(s:sub(3), 16)

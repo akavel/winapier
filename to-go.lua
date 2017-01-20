@@ -46,10 +46,15 @@ func frombool(b bool) uintptr {
 			printf("type %s int\n", upcase(entity.name))
 			printf("const (\n")
 			for _, v in ipairs(entity.values) do
-				if v.ival then
-					printf("\t%s %s = %d\n", upcase(v.name), upcase(entity.name), v.ival)
+				if v.ival and v.val then
+					printf("\t%s %s = %d /* = %s */\n",
+						upcase(v.name), upcase(entity.name), v.ival, v.val)
+				elseif v.ival then
+					printf("\t%s %s = %d\n",
+						upcase(v.name), upcase(entity.name), v.ival)
 				else
-					printf("\t// FIXME: %s %s = %s\n", v.name, entity.name, v.val)
+					printf("\t// FIXME: %s %s = %s\n",
+						v.name, entity.name, v.val)
 				end
 			end
 			printf(")\n")
