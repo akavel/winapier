@@ -61,6 +61,13 @@ func frombool(b bool) uintptr {
 			end
 		elseif entity.nameKind == 'func' then
 			emit_func(entity)
+		elseif entity.nameKind == 'funcptr' then
+			local callback =
+				entity.calling == 'cdecl' and 'syscall.NewCallbackCDecl' or
+				entity.calling == 'stdcall' and 'syscall.NewCallback' or
+				entity.calling
+			printf("type %s uintptr // NOTE: %s(func%s)\n",
+				entity.name, callback, format_signature(entity))
 		else
 			error('unknown entity nameKind: '..entity.nameKind)
 		end
@@ -76,34 +83,25 @@ function emit_func(f)
 		f.name, f.dll, f.name)
 
 	-- func signature
-	printf("func %s(", f.name)
-	for i, arg in ipairs(f.args) do
-		if i > 1 then printf(", ") end
-		printf("%s %s", arg.name, format_type(arg.typ))
-	end
-	printf ") "
-	if f.ret.kind == 'builtin' and f.ret.builtin == 'void' then
-		printf "error {\n"
-	else
-		printf("(%s, error) {\n", format_type(f.ret))
-	end
+	printf("func %s%s {\n", f.name, format_signature(f, true))
 
 	-- func body - call
 	printf("\tr1, _, lastErr := proc%s.Call(", f.name)
 	for i, arg in ipairs(f.args) do
 		if i > 1 then printf(", ") end
 		local kind = arg.typ.kind
+		local name = named_arg(arg.name, i)
 		if kind == 'name' or kind == 'builtin' then
 			if arg.typ.builtin == 'bool' then
-				printf('frombool(%s)', arg.name)
+				printf('frombool(%s)', name)
 			else
 				-- FIXME(akavel): some named types may actually be pointers (or bools) -- e.g. LPCWSTR
-				printf('uintptr(%s)', arg.name)
+				printf('uintptr(%s)', name)
 			end
 		elseif kind == 'pointer' then
-			printf('uintptr(unsafe.Pointer(%s))', arg.name)
+			printf('uintptr(unsafe.Pointer(%s))', name)
 		else
-			error("don't know how to convert kind to uintptr: "..kind.." in arg: "..arg.name)
+			error("don't know how to convert kind to uintptr: "..kind.." in arg: "..name)
 		end
 	end
 	printf(")\n")
@@ -118,6 +116,22 @@ function emit_func(f)
 	end
 
 	printf("}\n\n")
+end
+
+function format_signature(f, err)
+	local buf = Buf()
+	buf:printf("(", f.name)
+	for i, arg in ipairs(f.args) do
+		if i > 1 then buf:printf(", ") end
+		buf:printf("%s %s", named_arg(arg.name, i), format_type(arg.typ))
+	end
+	buf:printf ")"
+	if f.ret.kind == 'builtin' and f.ret.builtin == 'void' then
+		buf:printf(err and " error" or "")
+	else
+		buf:printf(err and " (%s, error)" or " %s", format_type(f.ret))
+	end
+	return buf:string()
 end
 
 function format_type(typ)
@@ -138,6 +152,10 @@ function format_type(typ)
 	end
 end
 
+function named_arg(s, i)
+	return s or '_'..i
+end
+
 function upcase(s)
 	local first, rest = s:sub(1,1), s:sub(2)
 	if first == '_' then
@@ -149,6 +167,17 @@ end
 
 function printf(fmt, ...)
 	io.write(fmt:format(...))
+end
+
+function Buf()
+	return setmetatable({}, {__index={
+		printf = function(self, fmt, ...)
+			self[#self+1] = fmt:format(...)
+		end,
+		string = function(self)
+			return table.concat(self, '')
+		end,
+	}})
 end
 
 main()
