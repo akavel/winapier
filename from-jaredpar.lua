@@ -8,7 +8,6 @@
 -- TODO: emit OCaml ctypes-foreign bindings, in Lua
 -- TODO: add GPL licensing info
 -- TODO: add --help (and /?) option and usage info
--- TODO: simplify tagFOOBAR types (e.g. tagMKREDUCE vs. MKRREDUCE, or tagMEMCTX vs. MEMCTX)
 -- TODO: [LATER] write a readme, with info that the idea is to have
 --       emitters+parsers of the same DB in various programming languages, for
 --       ease of use in as many of them as possible
@@ -50,6 +49,7 @@ function main(...)
 	for _,v in ipairs(args) do
 		if not result[v] then
 			result[v] = data[v]
+			squash(data, v) -- TODO(akavel): allow disabling this step with cmdline param
 			if deps and data[v] then
 				append_deps(data[v], args)
 			end
@@ -58,6 +58,7 @@ function main(...)
 	dumpt(result)
 end
 
+-- strip_hungarian removes Hungarian Notation prefix from provided symbol, if found.
 function strip_hungarian(s)
 	if keepHungarian then return s end
 	if not s then return s end
@@ -94,6 +95,22 @@ function append_typ(t, list)
 		list[#list+1] = t.name
 	elseif t.kind == 'pointer' then
 		append_typ(t.to, list)
+	end
+end
+
+-- squash simplifies name definition if it's just a redundant alias for a
+-- different type.  For example, tagMKREDUCE can be removed to simplify
+-- MKRREDUCE; similar for MEMCTX vs. tagMEMCTX.
+function squash(data, name)
+	local t = data[name]
+	if t.nameKind == 'typedef' and t.typ.kind == 'name' then
+		-- TODO(akavel): maybe skip squashing if typedef adds const qualifier?
+		local target = t.typ.name
+		-- delete old keys, copy new ones, but retain original name
+		for k in pairs(t) do t[k] = nil end
+		for k,v in pairs(data[target]) do t[k] = v end
+		t.name = name
+		return squash(data, name)
 	end
 end
 
