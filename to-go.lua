@@ -1,5 +1,7 @@
 -- to-go.lua -- converts data emitted by from-jaredpar.lua to Go code
 
+data = {}
+
 function main()
 	-- read whole standard input and parse as Lua
 	local prefixed = false
@@ -10,7 +12,7 @@ function main()
 		end
 		return io.read()
 	end
-	local input = assert(load(read))()
+	data = assert(load(read))()
 
 	-- emit common preamble
 	printf [[
@@ -31,7 +33,7 @@ func frombool(b bool) uintptr {
 ]]
 
 	-- emit entities
-	for name, entity in pairs(input) do
+	for name, entity in pairs(data) do
 		if entity.nameKind == 'struct' then
 			-- TODO(akavel): check if using lustache or some other (Go-like?) templating engine simplifies stuff
 			printf("type %s struct {\n", upcase(entity.name))
@@ -96,15 +98,17 @@ function emit_func(f)
 		if i > 1 then printf(", ") end
 		local kind = arg.typ.kind
 		local name = named_arg(arg.name, i)
-		if kind == 'name' or kind == 'builtin' then
+		if kind == 'builtin' then
 			if arg.typ.builtin == 'bool' then
 				printf('frombool(%s)', name)
 			else
-				-- FIXME(akavel): some named types may actually be pointers (or bools) -- e.g. LPCWSTR
 				printf('uintptr(%s)', name)
 			end
-		elseif kind == 'pointer' then
+		elseif is_pointer(arg.typ) then
 			printf('uintptr(unsafe.Pointer(%s))', name)
+		elseif kind == 'name' then
+			-- FIXME(akavel): some named types may actually be bools
+			printf('uintptr(%s)', name)
 		else
 			error("don't know how to convert kind to uintptr: "..kind.." in arg: "..name)
 		end
@@ -154,6 +158,20 @@ function format_type(typ)
 		return upcase(typ.name)
 	else
 		error('unknown type kind: '..typ.kind)
+	end
+end
+
+function is_pointer(typ)
+	if typ.kind == 'pointer' then
+		return true
+	elseif typ.kind == 'name' then
+		local target = assert(data[typ.name], 'name not found in input: '..typ.name)
+		if target.nameKind ~= 'typedef' then
+			return false
+		end
+		return is_pointer(target.typ)
+	else
+		return false
 	end
 end
 

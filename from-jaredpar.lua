@@ -8,6 +8,7 @@
 -- TODO: emit OCaml ctypes-foreign bindings, in Lua
 -- TODO: add GPL licensing info
 -- TODO: add --help (and /?) option and usage info
+-- TODO: simplify tagFOOBAR types (e.g. tagMKREDUCE vs. MKRREDUCE, or tagMEMCTX vs. MEMCTX)
 -- TODO: [LATER] write a readme, with info that the idea is to have
 --       emitters+parsers of the same DB in various programming languages, for
 --       ease of use in as many of them as possible
@@ -28,7 +29,7 @@ function main(...)
 	local data = import(inputPath)
 	local args = {...}
 	if #args == 0 then
-		args = {'-d', 'RegisterClassEx', 'CreateWindowExW', 'TYSPEC', 'MEMCTX', 'CLSCTX', 'tagMKREDUCE', 'EXCEPTION_DISPOSITION'}
+		args = {'-d', 'RegisterClassEx', 'CreateWindowExW', 'TYSPEC', 'MEMCTX', 'CLSCTX', 'MKRREDUCE', 'EXCEPTION_DISPOSITION'}
 	end
 
 	-- parse options
