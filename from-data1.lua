@@ -30,9 +30,10 @@ present in: ]] .. inputPath .. [[
 
 
 OPTIONS:
-  -d    don't print definitions of dependency symbols
-  -h    keep Hungarian Notation prefixes in struct fields and signatures
-        (by default, an attempt is made to remove them when detected)
+  -d       don't print definitions of dependency symbols
+  -h       keep Hungarian Notation prefixes in struct fields and signatures
+           (by default, an attempt is made to remove them when detected)
+  -o=FILE  print output to specified FILE instead of the standard output stream
 ]]
 
 function main(...)
@@ -44,6 +45,7 @@ function main(...)
 
 	-- parse options
 	local deps = true
+	local output = io.stdout
 	while #args > 0 and args[1]:sub(1,1) == '-' do
 		if args[1] == '--help' or args[1] == '/?' then
 			io.stderr:write(usage)
@@ -52,8 +54,10 @@ function main(...)
 			deps = false
 		elseif args[1] == '-h' then
 			keepHungarian = true
+		elseif has_prefix(args[1], '-o=') then
+			output = assert(io.open(strip_prefix(args[1], '-o='), 'w'))
 		else
-			io.stderr:write("error: unknown option "..args[1].."\n")
+			io.stderr:write("error: unknown option "..args[1].."\n"..usage)
 			os.exit(1)
 		end
 		table.remove(args, 1)
@@ -69,7 +73,7 @@ function main(...)
 			end
 		end
 	end
-	dumpt(result)
+	dumpt(result, output)
 end
 
 -- strip_hungarian removes Hungarian Notation prefix from provided symbol, if found.
@@ -415,52 +419,48 @@ function dumpkv(tab, prefix)
 		end
 	end
 end
-function dumpt(t, indent)
+function dumpt(t, output, indent)
 	indent = (indent or '') .. '  '
 	if type(t)=='table' then
-		io.write '{'
+		output:write '{'
 		local max
 		for i, v in ipairs(t) do
 			max = i
-			dumpt(v, indent)
-			io.write ','
+			dumpt(v, output, indent)
+			output:write ','
 		end
 		local more = false
 		for k, v in pairs(t) do
 			if type(k)~='number' or k<1 or k>max then
 				if more then
-					io.write ';'
+					output:write ';'
 				end
 				more = true
-				io.write '\n'
-				io.write(indent)
+				output:write '\n'
+				output:write(indent)
 				if type(k)=='string' then
 					if k:match '^[%a_][%w_]*$' then
-						io.write(k)
+						output:write(k)
 					else
-						io.write(('[%q]'):format(k))
+						output:write(('[%q]'):format(k))
 					end
-					io.write '= '
-					dumpt(v, indent)
+					output:write '= '
+					dumpt(v, output, indent)
 				elseif type(k)=='number' then
-					io.write(('[%d]= '):format(k))
-					dumpt(v, indent)
+					output:write(('[%d]= '):format(k))
+					dumpt(v, output, indent)
 				else
 					error('unhandled key type: '..type(k))
 				end
 			end
 		end
-		-- if more then
-		-- 	io.write '\n'
-		-- 	io.write(indent)
-		-- end
-		io.write '}'
+		output:write '}'
 	elseif type(t)=='string' then
-		io.write(('%q'):format(t))
+		output:write(('%q'):format(t))
 	elseif type(t)=='number' then
-		io.write(tostring(t))
+		output:write(tostring(t))
 	elseif type(t)=='boolean' then
-		io.write(tostring(t))
+		output:write(tostring(t))
 	end
 end
 
@@ -468,6 +468,12 @@ function nil_empty(s)
 	if s ~= "" then
 		return s
 	end
+end
+function has_prefix(s, prefix)
+	return #s>=#prefix and s:sub(1,#prefix) == prefix
+end
+function strip_prefix(s, prefix)
+	return has_prefix(s, prefix) and s:sub(#prefix+1) or s
 end
 
 main(...)
