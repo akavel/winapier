@@ -1,8 +1,29 @@
 -- to-go.lua -- converts data emitted by from-jaredpar.lua to Go code
+USAGE = [[
+Usage: lua to-go.lua [OPTIONS]
+Load definitions of WinAPI symbols formatted as Lua tables,
+then emit corresponding signatures in Go source code format.
+
+OPTIONS:
+  -i=FILE  load Lua tables from specified FILE instead of the standard input stream
+]]
 
 data = {}
 
-function main()
+function main(...)
+	-- parse options
+	local args = {...}
+	local input = io.stdin
+	while #args > 0 and args[1]:sub(1,1) == '-' do
+		if args[1]:sub(1,3) == '-i=' then
+			input = assert(io.open(args[1]:sub(4), 'r'))
+		else
+			io.stderr:write("error: unknown option "..args[1].."\n"..USAGE)
+			os.exit(1)
+		end
+		table.remove(args, 1)
+	end
+
 	-- read whole standard input and parse as Lua
 	local prefixed = false
 	local function read()
@@ -10,7 +31,7 @@ function main()
 			prefixed = true
 			return "return "
 		end
-		return io.read()
+		return input:read()
 	end
 	data = assert(load(read))()
 
@@ -203,5 +224,5 @@ function Buf()
 	}})
 end
 
-main()
+main(...)
 

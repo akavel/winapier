@@ -1,9 +1,19 @@
--- from-jaredpar.lua -- parses the WinAPI database from [jaredpar/pinvoke][1]
--- project, queries it about specified symbols and optionally their
--- dependencies, then prints the results in Lua table format.
---
--- [1]: https://github.com/jaredpar/pinvoke/master/tree/StorageGenerator/Data/windows.csv
---
+INPUT_PATH = 'data1/StorageGenerator/Data/windows.csv'
+USAGE = [[
+Usage: lua from-data1.lua [OPTIONS] SYMBOL ...
+Print definitions/signatures of listed WinAPI SYMBOLS, and all symbols
+they depend on, in Lua table format.
+Note: app requires an appropriately formatted WinAPI database to be
+present in: ]] .. INPUT_PATH .. [[
+
+
+OPTIONS:
+  -d       don't print definitions of dependency symbols
+  -h       keep Hungarian Notation prefixes in struct fields and signatures
+           (by default, an attempt is made to remove them when detected)
+  -o=FILE  print output to specified FILE instead of the standard output stream
+]]
+
 -- TODO: emit OCaml ctypes-foreign bindings, in Lua
 -- TODO: add GPL licensing info
 -- TODO: [LATER] write a readme, with info that the idea is to have
@@ -16,28 +26,11 @@
 -- TODO: [LATER] try emitting json as an option
 -- TODO: [LATER][BIG] add support for COM interfaces
 
-inputPath = 'data1/StorageGenerator/Data/windows.csv'
-
 -- global flags
 keepHungarian = false
 
-usage = [[
-Usage: lua from-data1.lua [OPTIONS] SYMBOL ...
-Print definitions/signatures of listed WinAPI SYMBOLS, and all symbols
-they depend on, in Lua table format.
-Note: app requires an appropriately formatted WinAPI database to be
-present in: ]] .. inputPath .. [[
-
-
-OPTIONS:
-  -d       don't print definitions of dependency symbols
-  -h       keep Hungarian Notation prefixes in struct fields and signatures
-           (by default, an attempt is made to remove them when detected)
-  -o=FILE  print output to specified FILE instead of the standard output stream
-]]
-
 function main(...)
-	local data = import(inputPath)
+	local data = import(INPUT_PATH)
 	local args = {...}
 	if #args == 0 then
 		args = {'RegisterClassEx', 'CreateWindowExW', 'TYSPEC', 'MEMCTX', 'CLSCTX', 'MKRREDUCE', 'EXCEPTION_DISPOSITION'}
@@ -48,16 +41,16 @@ function main(...)
 	local output = io.stdout
 	while #args > 0 and args[1]:sub(1,1) == '-' do
 		if args[1] == '--help' or args[1] == '/?' then
-			io.stderr:write(usage)
+			io.stderr:write(USAGE)
 			os.exit(1)
 		elseif args[1] == '-d' then
 			deps = false
 		elseif args[1] == '-h' then
 			keepHungarian = true
-		elseif has_prefix(args[1], '-o=') then
-			output = assert(io.open(strip_prefix(args[1], '-o='), 'w'))
+		elseif args[1]:sub(1,3) == '-o=' then
+			output = assert(io.open(args[1]:sub(4), 'w'))
 		else
-			io.stderr:write("error: unknown option "..args[1].."\n"..usage)
+			io.stderr:write("error: unknown option "..args[1].."\n"..USAGE)
 			os.exit(1)
 		end
 		table.remove(args, 1)
@@ -468,12 +461,6 @@ function nil_empty(s)
 	if s ~= "" then
 		return s
 	end
-end
-function has_prefix(s, prefix)
-	return #s>=#prefix and s:sub(1,#prefix) == prefix
-end
-function strip_prefix(s, prefix)
-	return has_prefix(s, prefix) and s:sub(#prefix+1) or s
 end
 
 main(...)
