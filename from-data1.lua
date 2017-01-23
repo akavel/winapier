@@ -4,10 +4,8 @@
 --
 -- [1]: https://github.com/jaredpar/pinvoke/master/tree/StorageGenerator/Data/windows.csv
 --
--- TODO: add [jaredpar/pinvoke][1] as a subproject
 -- TODO: emit OCaml ctypes-foreign bindings, in Lua
 -- TODO: add GPL licensing info
--- TODO: add --help (and /?) option and usage info
 -- TODO: [LATER] write a readme, with info that the idea is to have
 --       emitters+parsers of the same DB in various programming languages, for
 --       ease of use in as many of them as possible
@@ -25,7 +23,7 @@ inputPath = 'data1/StorageGenerator/Data/windows.csv'
 keepHungarian = false
 
 usage = [[
-Usage: lua from-jaredpar.lua [OPTIONS] SYMBOL ...
+Usage: lua from-data1.lua [OPTIONS] SYMBOL ...
 Print definitions/signatures of listed WinAPI SYMBOLS, and all symbols
 they depend on, in Lua table format.
 Note: app requires an appropriately formatted WinAPI database to be
