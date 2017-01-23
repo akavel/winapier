@@ -9,7 +9,6 @@
 -- TODO: [LATER] write a readme, with info that the idea is to have
 --       emitters+parsers of the same DB in various programming languages, for
 --       ease of use in as many of them as possible
--- TODO: [LATER] emit Go bindings
 -- TODO: [LATER] change github.com/akavel/goheader to emit our own database and replace jaredpar's one with ours
 -- TODO: [LATER] try changing the DB to some format similarly small but even
 --       more trivial to parse (ideally common enough to have standard parsing
