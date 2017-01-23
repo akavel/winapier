@@ -19,23 +19,40 @@
 -- TODO: [LATER] try emitting json as an option
 -- TODO: [LATER][BIG] add support for COM interfaces
 
-inputPath = '../pinvoke/StorageGenerator/Data/windows.csv'
+inputPath = 'data1/StorageGenerator/Data/windows.csv'
 
 -- global flags
 keepHungarian = false
+
+usage = [[
+Usage: lua from-jaredpar.lua [OPTIONS] SYMBOL ...
+Print definitions/signatures of listed WinAPI SYMBOLS, and all symbols
+they depend on, in Lua table format.
+Note: app requires an appropriately formatted WinAPI database to be
+present in: ]] .. inputPath .. [[
+
+
+OPTIONS:
+  -d    don't print definitions of dependency symbols
+  -h    keep Hungarian Notation prefixes in struct fields and signatures
+        (by default, an attempt is made to remove them when detected)
+]]
 
 function main(...)
 	local data = import(inputPath)
 	local args = {...}
 	if #args == 0 then
-		args = {'-d', 'RegisterClassEx', 'CreateWindowExW', 'TYSPEC', 'MEMCTX', 'CLSCTX', 'MKRREDUCE', 'EXCEPTION_DISPOSITION'}
+		args = {'RegisterClassEx', 'CreateWindowExW', 'TYSPEC', 'MEMCTX', 'CLSCTX', 'MKRREDUCE', 'EXCEPTION_DISPOSITION'}
 	end
 
 	-- parse options
-	local deps = false
+	local deps = true
 	while #args > 0 and args[1]:sub(1,1) == '-' do
-		if args[1] == '-d' then
-			deps = true
+		if args[1] == '--help' or args[1] == '/?' then
+			io.stderr:write(usage)
+			os.exit(1)
+		elseif args[1] == '-d' then
+			deps = false
 		elseif args[1] == '-h' then
 			keepHungarian = true
 		else
