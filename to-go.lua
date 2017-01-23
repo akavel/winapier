@@ -4,8 +4,9 @@ Load definitions of WinAPI symbols formatted as Lua tables,
 then emit corresponding signatures in Go source code format.
 
 OPTIONS:
-  -i=FILE  load Lua tables from specified FILE instead of the standard input stream
-  -o=FILE  print output to specified FILE instead of the standard output stream
+  -i=FILE     load Lua tables from specified FILE instead of the standard input stream
+  -o=FILE     print output to specified FILE instead of the standard output stream
+  -p=PACKAGE  emit `package PACKAGE` line as first output instead of default "main"
 ]]
 
 data = {}
@@ -15,11 +16,14 @@ function main(...)
 	-- parse options
 	local args = {...}
 	local input = io.stdin
+	local package = "main"
 	while #args > 0 and args[1]:sub(1,1) == '-' do
 		if args[1]:sub(1,3) == '-i=' then
 			input = assert(io.open(args[1]:sub(4), 'r'))
 		elseif args[1]:sub(1,3) == '-o=' then
 			output = assert(io.open(args[1]:sub(4), 'w'))
+		elseif args[1]:sub(1,3) == '-p=' then
+			package = args[1]:sub(4)
 		else
 			io.stderr:write("error: unknown option "..args[1].."\n"..USAGE)
 			os.exit(1)
@@ -39,7 +43,9 @@ function main(...)
 	data = assert(load(read))()
 
 	-- emit common preamble
-	printf [[
+	printf([[
+package %s
+
 import "unsafe"
 import "syscall"
 
@@ -54,7 +60,7 @@ func frombool(b bool) uintptr {
 	}
 }
 
-]]
+]], package)
 
 	-- emit entities
 	for name, entity in pairs(data) do
