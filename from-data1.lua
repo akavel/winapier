@@ -12,6 +12,7 @@ OPTIONS:
   -h       keep Hungarian Notation prefixes in struct fields and signatures
            (by default, an attempt is made to remove them when detected)
   -o=FILE  print output to specified FILE instead of the standard output stream
+  -i=FILE  use FILE as input WinAPI database, instead of default
 ]]
 
 -- TODO: emit OCaml ctypes-foreign bindings, in Lua
@@ -30,7 +31,6 @@ OPTIONS:
 keepHungarian = false
 
 function main(...)
-	local data = import(INPUT_PATH)
 	local args = {...}
 	if #args == 0 then
 		args = {'RegisterClassEx', 'CreateWindowExW', 'TYSPEC', 'MEMCTX', 'CLSCTX', 'MKRREDUCE', 'EXCEPTION_DISPOSITION'}
@@ -39,6 +39,7 @@ function main(...)
 	-- parse options
 	local deps = true
 	local output = io.stdout
+	local input = INPUT_PATH
 	while #args > 0 and args[1]:sub(1,1) == '-' do
 		if args[1] == '--help' or args[1] == '/?' then
 			io.stderr:write(USAGE)
@@ -49,6 +50,8 @@ function main(...)
 			keepHungarian = true
 		elseif args[1]:sub(1,3) == '-o=' then
 			output = assert(io.open(args[1]:sub(4), 'w'))
+		elseif args[1]:sub(1,3) == '-i=' then
+			input = args[1]:sub(4)
 		else
 			io.stderr:write("error: unknown option "..args[1].."\n"..USAGE)
 			os.exit(1)
@@ -56,6 +59,7 @@ function main(...)
 		table.remove(args, 1)
 	end
 
+	local data = import(input)
 	local result = {}
 	for _,v in ipairs(args) do
 		if not result[v] then
