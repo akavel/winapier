@@ -1,4 +1,3 @@
--- to-go.lua -- converts data emitted by from-jaredpar.lua to Go code
 USAGE = [[
 Usage: lua to-go.lua [OPTIONS]
 Load definitions of WinAPI symbols formatted as Lua tables,
@@ -6,9 +5,11 @@ then emit corresponding signatures in Go source code format.
 
 OPTIONS:
   -i=FILE  load Lua tables from specified FILE instead of the standard input stream
+  -o=FILE  print output to specified FILE instead of the standard output stream
 ]]
 
 data = {}
+output = io.stdout
 
 function main(...)
 	-- parse options
@@ -17,6 +18,8 @@ function main(...)
 	while #args > 0 and args[1]:sub(1,1) == '-' do
 		if args[1]:sub(1,3) == '-i=' then
 			input = assert(io.open(args[1]:sub(4), 'r'))
+		elseif args[1]:sub(1,3) == '-o=' then
+			output = assert(io.open(args[1]:sub(4), 'w'))
 		else
 			io.stderr:write("error: unknown option "..args[1].."\n"..USAGE)
 			os.exit(1)
@@ -210,7 +213,7 @@ function upcase(s)
 end
 
 function printf(fmt, ...)
-	io.write(fmt:format(...))
+	output:write(fmt:format(...))
 end
 
 function Buf()
