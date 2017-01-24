@@ -1,16 +1,19 @@
 USAGE = [[
-Usage: lua to-go.lua [OPTIONS]
+Usage: lua to-go.lua [OPTIONS] [ALIAS]...
 Load definitions of WinAPI symbols formatted as Lua tables,
-then emit corresponding signatures in Go source code format.
+then print corresponding signatures in Go source code format.
 
 OPTIONS:
   -i=FILE     load Lua tables from specified FILE instead of the standard input stream
   -o=FILE     print output to specified FILE instead of the standard output stream
-  -p=PACKAGE  emit `package PACKAGE` line as first output instead of default "main"
+  -p=PACKAGE  print `package PACKAGE` line as first output instead of default "main"
+  ALIAS       optional TYPE=GOTYPE replacement; instead of TYPE, raw GOTYPE will be printed
+              (Note: some types are already aliased by default)
 ]]
 
 data = {}
 output = io.stdout
+aliases = {HWND='uintptr', HANDLE='uintptr', HMODULE='uintptr'}
 
 function main(...)
 	-- parse options
@@ -31,6 +34,12 @@ function main(...)
 		table.remove(args, 1)
 	end
 
+	-- read aliases
+	for _, a in ipairs(args) do
+		local _, _, k, v = a:find '([^=]*)=(.*)'
+		aliases[k] = v
+	end
+
 	-- read whole standard input and parse as Lua
 	local prefixed = false
 	local function read()
@@ -42,6 +51,11 @@ function main(...)
 	end
 	data = assert(load(read))()
 
+	-- delete aliased types from data
+	for k in pairs(aliases) do
+		data[k] = nil
+	end
+
 	-- emit common preamble
 	printf([[
 package %s
@@ -49,7 +63,7 @@ package %s
 import "unsafe"
 import "syscall"
 
-var _ = unsafe.Pointer
+var _ = unsafe.Sizeof(0)
 var _ = syscall.MustLoadDLL
 
 func frombool(b bool) uintptr {
@@ -185,7 +199,7 @@ function format_type(typ)
 		end
 		return '*' .. format_type(typ.to)
 	elseif typ.kind == 'name' then
-		return upcase(typ.name)
+		return aliases[typ.name] or upcase(typ.name)
 	else
 		error('unknown type kind: '..typ.kind)
 	end
@@ -195,7 +209,7 @@ function is_pointer(typ)
 	if typ.kind == 'pointer' then
 		return true
 	elseif typ.kind == 'name' then
-		local target = assert(data[typ.name], 'name not found in input: '..typ.name)
+		local target = assert(data[typ.name] or aliases[typ.name], 'name not found in input: '..typ.name)
 		if target.nameKind ~= 'typedef' then
 			return false
 		end
