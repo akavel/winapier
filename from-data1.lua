@@ -13,6 +13,7 @@ OPTIONS:
            (by default, an attempt is made to remove them when detected)
   -o=FILE  print output to specified FILE instead of the standard output stream
   -i=FILE  use FILE as input WinAPI database, instead of default
+  -s       disable squashing of tagMEMCTX into MEMCTX
 ]]
 
 -- TODO: emit OCaml ctypes-foreign bindings, in Lua
@@ -29,6 +30,7 @@ OPTIONS:
 
 -- global flags
 keepHungarian = false
+noSquash = false
 
 function main(...)
 	local args = {...}
@@ -48,6 +50,8 @@ function main(...)
 			deps = false
 		elseif args[1] == '-h' then
 			keepHungarian = true
+		elseif args[1] == '-s' then
+			noSquash = true
 		elseif args[1]:sub(1,3) == '-o=' then
 			output = assert(io.open(args[1]:sub(4), 'w'))
 		elseif args[1]:sub(1,3) == '-i=' then
@@ -117,6 +121,7 @@ end
 -- different type.  For example, tagMKREDUCE can be removed to simplify
 -- MKRREDUCE; similar for MEMCTX vs. tagMEMCTX.
 function squash(data, name)
+	if noSquash then return end
 	local t = data[name]
 	if t.nameKind == 'typedef' and t.typ.kind == 'name' then
 		-- TODO(akavel): maybe skip squashing if typedef adds const qualifier?
