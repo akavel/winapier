@@ -13,7 +13,13 @@ OPTIONS:
 
 data = {}
 output = io.stdout
-aliases = {HWND='uintptr', HANDLE='uintptr', HMODULE='uintptr'}
+
+aliases = {}
+do
+	for _,a in ipairs{'HWND', 'HANDLE', 'HMODULE', 'HCURSOR', 'HICON'} do
+		aliases[a] = 'uintptr'
+	end
+end
 
 function main(...)
 	-- parse options
@@ -106,7 +112,11 @@ func frombool(b bool) uintptr {
 			printf(")\n")
 		elseif entity.nameKind == 'const' then
 			if entity.kind == 'Macro' then
-				printf("/* FIXME: #define %s %s */\n", entity.name, entity.val)
+				if entity.val:match '^[%a_][%w_]*$' then
+					emit_simple_macro(entity)
+				else
+					printf("/* FIXME: #define %s %s */\n", entity.name, entity.val)
+				end
 			else
 				error('unknown const kind: '..entity.kind)
 			end
@@ -125,6 +135,29 @@ func frombool(b bool) uintptr {
 	end
 end
 
+function emit_simple_macro(m)
+	local real = data[m.val]
+	-- try to decode multi-level macros
+	while real.nameKind == 'const' do
+		real = data[real.val]
+	end
+
+	if real.nameKind == 'func' then
+		-- func signature
+		printf("func %s%s {\n", m.name, format_signature(real, true))
+		-- func body - simple call
+		printf("\treturn %s(", m.val)
+		for i, arg in ipairs(real.args) do
+			if i > 1 then printf(", ") end
+			printf("%s", named_arg(arg.name, i))
+		end
+		printf(")\n")
+		printf("}\n\n")
+	else
+		error("unknown macro target's nameKind: "..real.nameKind)
+	end
+end
+
 function emit_func(f)
 	-- TODO(akavel): try emitting funcs as structs with Call method, to simulate named params,
 	-- to make it easier to omit some params.
@@ -137,7 +170,7 @@ function emit_func(f)
 	printf("func %s%s {\n", f.name, format_signature(f, true))
 
 	-- func body - call
-	printf("\tr1, _, lastErr := proc%s.Call(", f.name)
+	printf("\t%s, _, lastErr := proc%s.Call(", (is_void(f.ret) and '_' or 'r1'), f.name)
 	for i, arg in ipairs(f.args) do
 		if i > 1 then printf(", ") end
 		local kind = arg.typ.kind
@@ -162,7 +195,7 @@ function emit_func(f)
 	-- func body - return
 	-- TODO(akavel): try to put in DB info when a func returns successfully and when it returns error,
 	-- then behave appropriately here
-	if f.ret.kind == 'builtin' and f.ret.builtin == 'void' then
+	if is_void(f.ret) then
 		printf "\treturn lastErr\n"
 	else
 		printf("\treturn (%s)(r1), lastErr\n", format_type(f.ret))
@@ -179,7 +212,7 @@ function format_signature(f, err)
 		buf:printf("%s %s", named_arg(arg.name, i), format_type(arg.typ))
 	end
 	buf:printf ")"
-	if f.ret.kind == 'builtin' and f.ret.builtin == 'void' then
+	if is_void(f.ret) then
 		buf:printf(err and " error" or "")
 	else
 		buf:printf(err and " (%s, error)" or " %s", format_type(f.ret))
@@ -193,7 +226,7 @@ function format_type(typ)
 		return assert(builtins[typ.builtin], 'unknown builtin: '..typ.builtin)
 	elseif typ.kind == 'pointer' then
 		local to = typ.to
-		if to.kind == 'builtin' and to.builtin == 'void' then
+		if is_void(to) then
 			-- TODO(akavel): *byte or unsafe.Pointer ?
 			return 'unsafe.Pointer'
 		end
@@ -203,6 +236,10 @@ function format_type(typ)
 	else
 		error('unknown type kind: '..typ.kind)
 	end
+end
+
+function is_void(typ)
+	return typ.kind == 'builtin' and typ.builtin == 'void'
 end
 
 function is_pointer(typ)

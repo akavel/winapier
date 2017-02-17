@@ -27,6 +27,7 @@ OPTIONS:
 --       libs instead of needing custom parser, even that simple)
 -- TODO: [LATER] try emitting json as an option
 -- TODO: [LATER][BIG] add support for COM interfaces
+-- TODO: order printed entries from dependencies to depending; print a Lua list, not a map (key is redundant with .name)
 
 -- global flags
 keepHungarian = false
@@ -35,7 +36,7 @@ noSquash = false
 function main(...)
 	local args = {...}
 	if #args == 0 then
-		args = {'RegisterClassEx', 'CreateWindowExW', 'TYSPEC', 'MEMCTX', 'CLSCTX', 'MKRREDUCE', 'EXCEPTION_DISPOSITION'}
+		args = {'RegisterClassEx', 'CreateWindowExW', 'TYSPEC', 'MEMCTX', 'CLSCTX', 'MKRREDUCE', 'EXCEPTION_DISPOSITION', 'SetWindowLongPtr', 'SetLastError'}
 	end
 
 	-- parse options
