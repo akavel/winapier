@@ -27,7 +27,6 @@ OPTIONS:
 --       libs instead of needing custom parser, even that simple)
 -- TODO: [LATER] try emitting json as an option
 -- TODO: [LATER][BIG] add support for COM interfaces
--- TODO: order printed entries from dependencies to depending; print a Lua list, not a map (key is redundant with .name)
 
 -- global flags
 keepHungarian = false
@@ -75,7 +74,18 @@ function main(...)
 			end
 		end
 	end
-	dumpt(result, output)
+
+	-- print result ordered from dependencies do dependants (for
+	-- deterministic order and easy emitting in any language)
+	local ordered_result = {}
+	for i = #args, 1, -1 do
+		local v = args[i]
+		if data[v] then
+			ordered_result[#ordered_result+1] = data[v]
+			data[v] = nil
+		end
+	end
+	dumpt(ordered_result, output)
 end
 
 -- strip_hungarian removes Hungarian Notation prefix from provided symbol, if found.

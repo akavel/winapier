@@ -57,6 +57,11 @@ function main(...)
 	end
 	data = assert(load(read))()
 
+	-- promote list to map (but still keeping the list for ordering)
+	for _, v in ipairs(data) do
+		data[v.name] = v
+	end
+
 	-- delete aliased types from data
 	for k in pairs(aliases) do
 		data[k] = nil
@@ -83,8 +88,10 @@ func frombool(b bool) uintptr {
 ]], package)
 
 	-- emit entities
-	for name, entity in pairs(data) do
-		if entity.nameKind == 'struct' then
+	for _, entity in ipairs(data) do
+		if data[entity.name] == nil then
+			-- skip; "lazy deleted"
+		elseif entity.nameKind == 'struct' then
 			-- TODO(akavel): check if using lustache or some other (Go-like?) templating engine simplifies stuff
 			printf("type %s struct {\n", upcase(entity.name))
 			for _, m in ipairs(entity.members) do
