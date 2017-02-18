@@ -15,11 +15,6 @@ data = {}
 output = io.stdout
 
 aliases = {}
-do
-	for _,a in ipairs{'HWND', 'HANDLE', 'HMODULE', 'HCURSOR', 'HICON'} do
-		aliases[a] = 'uintptr'
-	end
-end
 
 function main(...)
 	-- parse options
@@ -61,6 +56,9 @@ function main(...)
 	for _, v in ipairs(data) do
 		data[v.name] = v
 	end
+
+	-- make some common WinAPI types nicer
+	tweak_winapi()
 
 	-- delete aliased types from data
 	for k in pairs(aliases) do
@@ -139,6 +137,31 @@ func frombool(b bool) uintptr {
 		else
 			error('unknown entity nameKind: '..entity.nameKind)
 		end
+	end
+end
+
+function tweak_winapi()
+	-- fake HANDLE to become renamed uintptr
+	if data.HANDLE == nil then
+		data.HANDLE = {}
+		table.insert(data, 1, data.HANDLE)
+	end
+	table_wipe(data.HANDLE, {
+		name= "HANDLE";
+		nameKind= "typedef";
+		typ= {
+			builtin= "uintptr";
+			kind= "builtin"}})
+
+	-- tweak all below types to become renamed HANDLE
+	for _, h in ipairs{'HBRUSH', 'HCURSOR', 'HICON', 'HINSTANCE', 'HMENU', 'HMODULE', 'HWND'} do
+		table_wipe(data[h] or {}, {
+			name= h;
+			nameKind= "typedef";
+			typ= {
+				name= "HANDLE";
+				kind= "name"}})
+		data[h..'__'] = nil
 	end
 end
 
@@ -229,7 +252,7 @@ end
 
 function format_type(typ)
 	if typ.kind == 'builtin' then
-		local builtins = {int32='int32', int16='int16'}
+		local builtins = {int32='int32', int16='int16', uintptr='uintptr'}
 		return assert(builtins[typ.builtin], 'unknown builtin: '..typ.builtin)
 	elseif typ.kind == 'pointer' then
 		local to = typ.to
@@ -273,6 +296,16 @@ function upcase(s)
 		return 'X_' .. rest
 	else
 		return first:upper() .. rest
+	end
+end
+
+-- table_wipe replaces contents of old table with contents of new table
+function table_wipe(old, new)
+	for k in pairs(old) do
+		old[k] = nil
+	end
+	for k,v in pairs(new) do
+		old[k] = v
 	end
 end
 
